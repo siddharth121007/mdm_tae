@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+<title>Memory Pattern Matrix</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+
+<style>
+
+  :root {
+    --bg: #0f172a;
+    --fg: #e2e8f0;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 24px;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  button:focus-visible, .tile:focus-visible {
+    outline: 3px solid #fde047;
+    outline-offset: 2px;
+  }
+</style>
+    </head>
+<div class="max-w-md mx-auto text-center">
+
+  <h1 class="text-3xl font-bold text-yellow-300">Memory Pattern Matrix</h1>
+  <p class="text-slate-300 mt-2">Watch the tiles light up, then click them in the same order.</p>
+
+  <!-- score board -->
+  <div class="flex justify-center gap-3 mt-5">
+    <div class="bg-slate-800 border border-slate-600 rounded px-4 py-2">
+      <div class="text-xs text-slate-400">LEVEL</div>
+      <div id="level" class="text-2xl font-bold">0</div>
+    </div>
+    <div class="bg-slate-800 border border-slate-600 rounded px-4 py-2">
+      <div class="text-xs text-slate-400">BEST</div>
+      <div id="best" class="text-2xl font-bold">0</div>
+    </div>
+  </div>
+
+  <!-- message -->
+  <p id="message" class="mt-5 h-6 text-lg text-sky-300">Press Start to play!</p>
+
+  <!-- the 4x4 grid (tiles get added by javascript) -->
+  <div id="grid" class="grid grid-cols-4 gap-2 mt-4"></div>
+
+  <button id="startBtn" class="mt-6 bg-yellow-300 hover:bg-yellow-200 text-slate-900 font-bold py-2 px-8 rounded">
+    Start
+  </button>
+
+  <p class="text-xs text-slate-400 mt-6">One tile is added to the pattern every level. One wrong click and the game ends.</p>
+</div>
+
+<script>
+  // ---------- variables ----------
+  var gridSize = 16;          // 4 x 4 tiles
+  var sequence = [];          // the pattern the computer makes
+  var playerStep = 0;         // how many tiles the player has clicked correctly this round
+  var level = 0;
+  var best = 0;
+  var canClick = false;       // false while the pattern is playing
+
+  var grid = document.getElementById("grid");
+  var levelText = document.getElementById("level");
+  var bestText = document.getElementById("best");
+  var message = document.getElementById("message");
+  var startBtn = document.getElementById("startBtn");
+  var tiles = [];
+
+  // load best score (saved in the browser)
+  try {
+    best = Number(localStorage.getItem("memoryBest")) || 0;
+  } catch (e) {
+    best = 0;
+  }
+  bestText.textContent = best;
+
+  // ---------- make the 16 tiles ----------
+  for (var i = 0; i < gridSize; i++) {
+    var tile = document.createElement("button");
+    tile.className = "tile h-20 rounded bg-slate-700 hover:bg-slate-600 border border-slate-500";
+    tile.setAttribute("aria-label", "Tile " + (i + 1));
+    tile.dataset.index = i;
+    tile.addEventListener("click", onTileClick);
+    grid.appendChild(tile);
+    tiles.push(tile);
+  }
+
+  // ---------- light a tile up for a moment ----------
+  function lightUp(index, color) {
+    var tile = tiles[index];
+    tile.classList.remove("bg-slate-700");
+    tile.classList.add(color);
+    setTimeout(function () {
+      tile.classList.remove(color);
+      tile.classList.add("bg-slate-700");
+    }, 400);
+  }
+
+  // ---------- show the whole pattern ----------
+  function playSequence() {
+    canClick = false;
+    message.textContent = "Watch carefully...";
+    var i = 0;
+    var timer = setInterval(function () {
+      lightUp(sequence[i], "bg-yellow-300");
+      i++;
+      if (i >= sequence.length) {
+        clearInterval(timer);
+        setTimeout(function () {
+          canClick = true;
+          playerStep = 0;
+          message.textContent = "Your turn!";
+        }, 600);
+      }
+    }, 700);
+  }
+
+  // ---------- start a new level ----------
+  function nextLevel() {
+    level++;
+    levelText.textContent = level;
+    var randomTile = Math.floor(Math.random() * gridSize);
+    sequence.push(randomTile);
+    playSequence();
+  }
+
+  // ---------- player clicks a tile ----------
+  function onTileClick(event) {
+    if (!canClick) {
+      return;
+    }
+    var index = Number(event.target.dataset.index);
+
+    if (index === sequence[playerStep]) {
+      // correct
+      lightUp(index, "bg-emerald-400");
+      playerStep++;
+      if (playerStep === sequence.length) {
+        canClick = false;
+        message.textContent = "Nice! Get ready...";
+        setTimeout(nextLevel, 1000);
+      }
+    } else {
+      // wrong
+      lightUp(index, "bg-red-500");
+      gameOver();
+    }
+  }
+
+  // ---------- game over ----------
+  function gameOver() {
+    canClick = false;
+    var finished = level - 1;
+    message.textContent = "Wrong tile! You finished " + finished + " level(s).";
+    if (finished > best) {
+      best = finished;
+      bestText.textContent = best;
+      try {
+        localStorage.setItem("memoryBest", best);
+      } catch (e) {
+        // saving did not work, that is ok
+      }
+    }
+    startBtn.textContent = "Play again";
+    startBtn.disabled = false;
+  }
+
+  // ---------- start button ----------
+  startBtn.addEventListener("click", function () {
+    sequence = [];
+    level = 0;
+    startBtn.disabled = true;
+    startBtn.textContent = "Playing...";
+    nextLevel();
+  });
+</script>
